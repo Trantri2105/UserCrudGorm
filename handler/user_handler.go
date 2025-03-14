@@ -162,7 +162,7 @@ func (u *userHandler) getUser() gin.HandlerFunc {
 		id := uint(userClaims["userId"].(float64))
 		user, err := u.userService.GetById(c, id)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		c.JSON(http.StatusOK, response.GetUserResponse{
