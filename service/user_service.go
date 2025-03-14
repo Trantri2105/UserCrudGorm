@@ -25,6 +25,8 @@ type userService struct {
 	logger   *zap.Logger
 }
 
+var ErrWrongPassword = errors.New("wrong password")
+
 func (u *userService) Login(ctx context.Context, email, password string) (string, error) {
 	user, err := u.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -32,7 +34,7 @@ func (u *userService) Login(ctx context.Context, email, password string) (string
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return "", errors.New("wrong password")
+		return "", ErrWrongPassword
 	}
 	token, err := u.jwt.CreateToken(user.ID)
 	if err != nil {

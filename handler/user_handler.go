@@ -5,7 +5,9 @@ import (
 	"UserCrud/dto/response"
 	"UserCrud/middleware"
 	"UserCrud/model"
+	"UserCrud/repository"
 	"UserCrud/service"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
@@ -31,16 +33,42 @@ func AddUserHandler(userService service.UserService, authMiddleware middleware.A
 	userRoute.GET("/profile", u.authMiddleware.ValidateAndExtractJwt(), u.getUser())
 }
 
+func respondWithError(err error, c *gin.Context) {
+	var uniqueErr *repository.UniqueConstraintError
+	var validationErr validator.ValidationErrors
+	switch {
+	case errors.Is(err, service.ErrWrongPassword):
+		c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+	case errors.As(err, &uniqueErr):
+		c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+	case errors.Is(err, repository.ErrUserNotFound):
+		c.JSON(http.StatusNotFound, response.Response{Error: err.Error()})
+	case errors.As(err, &validationErr):
+		var errMessage string
+		switch validationErr[0].Tag() {
+		case "required":
+			errMessage = "Field " + validationErr[0].Field() + " is required"
+		case "email":
+			errMessage = "Field " + validationErr[0].Field() + " must be a valid email"
+		case "number":
+			errMessage = "Field " + validationErr[0].Field() + " must be a valid number"
+		}
+		c.JSON(http.StatusBadRequest, response.Response{Error: errMessage})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{})
+	}
+}
+
 func (u *userHandler) register() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req request.RegisterRequest
 		if err := c.ShouldBind(&req); err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		validate := validator.New()
 		if err := validate.Struct(req); err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		err := u.userService.Register(c, model.User{
@@ -52,7 +80,7 @@ func (u *userHandler) register() gin.HandlerFunc {
 			Gender:      req.Gender,
 		})
 		if err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		c.JSON(http.StatusCreated, response.Response{Message: "User register successfully"})
@@ -63,17 +91,17 @@ func (u *userHandler) login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req request.LoginRequest
 		if err := c.ShouldBind(&req); err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		validate := validator.New()
 		if err := validate.Struct(req); err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		token, err := u.userService.Login(c, req.Email, req.Password)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		c.JSON(http.StatusOK, response.LoginResponse{AccessToken: token})
@@ -84,13 +112,13 @@ func (u *userHandler) updateUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req request.UpdateRequest
 		if err := c.ShouldBind(&req); err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		if !reflect.ValueOf(req.PhoneNumber).IsZero() {
 			validate := validator.New()
 			if err := validate.StructPartial(req, "PhoneNumber"); err != nil {
-				c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+				respondWithError(err, c)
 				return
 			}
 		}
@@ -106,7 +134,7 @@ func (u *userHandler) updateUser() gin.HandlerFunc {
 			Gender:      req.Gender,
 		})
 		if err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		c.JSON(http.StatusCreated, response.Response{Message: "User update successfully"})
@@ -120,7 +148,7 @@ func (u *userHandler) deleteUser() gin.HandlerFunc {
 		id := uint(userClaims["userId"].(float64))
 		err := u.userService.Delete(c, id)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, response.Response{Error: err.Error()})
+			respondWithError(err, c)
 			return
 		}
 		c.JSON(http.StatusOK, response.Response{Message: "User delete successfully"})

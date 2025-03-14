@@ -23,14 +23,14 @@ func (a *authMiddleware) ValidateAndExtractJwt() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if len(authHeader) == 0 {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "Authorization header is empty",
 			})
 			return
 		}
 		header := strings.Fields(authHeader)
 		if len(header) != 2 && header[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "Authorization header is invalid",
 			})
 			return
