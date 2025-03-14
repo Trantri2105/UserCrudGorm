@@ -137,7 +137,7 @@ func (u *userHandler) updateUser() gin.HandlerFunc {
 			respondWithError(err, c)
 			return
 		}
-		c.JSON(http.StatusCreated, response.Response{Message: "User update successfully"})
+		c.JSON(http.StatusOK, response.Response{Message: "User update successfully"})
 	}
 }
 
