@@ -175,7 +175,7 @@ Response
 }
 ```
 
-Xóa người dùng
+### Xóa người dùng
 
 - Yêu cầu xác thực bằng cách gửi kèm `access token` (lấy ở endpoint đăng nhập) trong header `Authorization`.
 
